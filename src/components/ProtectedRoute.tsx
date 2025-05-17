@@ -18,15 +18,24 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        const { data: profile } = await supabase
+        const { data: profile, error } = await supabase
           .from('profiles')
           .select('is_admin')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
+
+        if (error) {
+          console.error('Error fetching profile:', error);
+          setIsAuthenticated(false);
+          return;
+        }
 
         setIsAuthenticated(!!profile?.is_admin);
+      } else {
+        setIsAuthenticated(false);
       }
     } catch (error) {
+      console.error('Auth check error:', error);
       setIsAuthenticated(false);
     } finally {
       setLoading(false);

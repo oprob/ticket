@@ -16,19 +16,29 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
-      if (error) throw error;
+      if (authError) {
+        setError('Invalid login credentials. Please check your email and password.');
+        return;
+      }
 
-      if (data.user) {
-        const { data: profile } = await supabase
+      if (user) {
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('is_admin')
-          .eq('id', data.user.id)
-          .single();
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (profileError) {
+          console.error('Profile fetch error:', profileError);
+          setError('Error checking admin status. Please try again.');
+          await supabase.auth.signOut();
+          return;
+        }
 
         if (profile?.is_admin) {
           navigate('/admin');
@@ -38,7 +48,8 @@ const LoginPage: React.FC = () => {
         }
       }
     } catch (error) {
-      setError('Invalid login credentials');
+      console.error('Login error:', error);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
