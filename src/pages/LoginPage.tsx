@@ -16,45 +16,32 @@ const LoginPage: React.FC = () => {
     setError('');
 
     try {
-      const { data: { user }, error: authError } = await supabase.auth.signInWithPassword({
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password
       });
 
-      if (authError) {
-        setError('Invalid login credentials. Please check your email and password.');
-        setLoading(false);
-        return;
-      }
+      if (signInError) throw signInError;
 
-      if (!user) {
-        setError('No user data received. Please try again.');
-        setLoading(false);
-        return;
-      }
+      if (user) {
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('is_admin')
+          .eq('id', user.id)
+          .single();
 
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('is_admin')
-        .eq('id', user.id)
-        .single();
+        if (profileError) throw profileError;
 
-      if (profileError) {
-        console.error('Profile fetch error:', profileError);
-        setError('Error checking admin status. Please try again.');
-        setLoading(false);
-        return;
+        if (profile?.is_admin) {
+          navigate('/admin');
+        } else {
+          throw new Error('Access denied. Admin privileges required.');
+        }
       }
-
-      if (profile?.is_admin) {
-        navigate('/admin');
-      } else {
-        setError('Access denied. Admin privileges required.');
-        setLoading(false);
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
-      setError('An unexpected error occurred. Please try again.');
+      setError(error.message || 'An error occurred during login');
+    } finally {
       setLoading(false);
     }
   };
